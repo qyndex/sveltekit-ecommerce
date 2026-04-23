@@ -1,4 +1,4 @@
-// Cart store using Svelte 5 runes (module-level state)
+// Cart store using Svelte 5 runes (module-level reactive state)
 import { browser } from "$app/environment";
 
 export interface CartItem {
@@ -9,18 +9,40 @@ export interface CartItem {
   image: string;
 }
 
+const STORAGE_KEY = "sveltekit-ecommerce-cart";
+
+function loadFromStorage(): CartItem[] {
+  if (!browser) return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as CartItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 function createCart() {
-  const stored = browser ? localStorage.getItem("cart") : null;
-  let items = $state<CartItem[]>(stored ? JSON.parse(stored) : []);
+  let items = $state<CartItem[]>(loadFromStorage());
 
   function persist() {
-    if (browser) localStorage.setItem("cart", JSON.stringify(items));
+    if (browser) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    }
   }
 
   return {
-    get items() { return items; },
-    get total() { return items.reduce((sum, i) => sum + i.price * i.quantity, 0); },
-    get count() { return items.reduce((sum, i) => sum + i.quantity, 0); },
+    get items() {
+      return items;
+    },
+    get total() {
+      return items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    },
+    get count() {
+      return items.reduce((sum, i) => sum + i.quantity, 0);
+    },
+    get isEmpty() {
+      return items.length === 0;
+    },
 
     add(product: Omit<CartItem, "quantity">) {
       const existing = items.find((i) => i.id === product.id);
@@ -39,12 +61,27 @@ function createCart() {
     },
 
     updateQty(id: string, qty: number) {
+      if (qty <= 0) {
+        this.remove(id);
+        return;
+      }
       const item = items.find((i) => i.id === id);
-      if (item) { item.quantity = Math.max(0, qty); if (item.quantity === 0) this.remove(id); }
+      if (item) {
+        item.quantity = qty;
+        persist();
+      }
+    },
+
+    clear() {
+      items = [];
       persist();
     },
 
-    clear() { items = []; persist(); },
+    /** Seed cart from an array (e.g. after DB sync) */
+    hydrate(newItems: CartItem[]) {
+      items = newItems;
+      persist();
+    },
   };
 }
 
