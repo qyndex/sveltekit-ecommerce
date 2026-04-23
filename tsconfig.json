@@ -13,5 +13,13 @@
     "types": [
       "vite/client"
     ]
-  }
+  },
+  "exclude": [
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "src/**/*.test.*",
+    "src/**/*.spec.*",
+    "tests/**",
+    "e2e/**"
+  ]
 }
